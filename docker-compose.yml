@@ -1,0 +1,112 @@
+version: '3.3'
+services:
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+  rabbitmq:
+    image: rabbitmq:management
+    environment:
+      - RABBITMQ_DEFAULT_USER=djangito
+      - RABBITMQ_DEFAULT_PASS=djangito
+      - RABBITMQ_DEFAULT_VHOST=djangito
+    ports:
+      - "21001:5672"
+      - "21002:15672"
+  db:
+    image: postgres
+    environment:
+      - POSTGRES_USER=djangito
+      - POSTGRES_PASSWORD=djangito
+      - POSTGRES_DB=djangito
+    ports:
+      - "21003:5432"
+  web:
+    build: .
+    restart: always
+    command: python manage.py runserver 0.0.0.0:8060
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8060:8060"
+    volumes:
+      - .:/code
+    links:
+      - db
+      - redis
+      - rabbitmq
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  tailwind:
+    build: .
+    command: python manage.py tailwind start
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8383:8383"
+    volumes:
+      - .:/code
+    links:
+      - db
+      - redis
+      - rabbitmq
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  celery:
+    build: .
+    restart: always
+    command: celery -A project.celeryapp:app  worker -Q default -n djangitos.%%h --loglevel=INFO --max-memory-per-child=512000 --concurrency=5
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    links:
+      - db
+      - redis
+      - rabbitmq
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  celery-beat:
+    build: .
+    restart: always
+    command: celery -A project.celeryapp:app beat -S redbeat.RedBeatScheduler  --loglevel=DEBUG --pidfile /tmp/celerybeat.pid
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    links:
+      - db
+      - redis
+      - rabbitmq
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  celery-flower:
+    build: .
+    restart: always
+    command: celery --broker=amqp://djangito:djangito@rabbitmq/djangito --result-backend=redis://redis/0 flower --broker-api=http://djangito:djangito@rabbitmq:15672/api/ --loglevel=DEBUG --port=9090 --basic_auth=djangitos:testpassword
+    ports:
+      - "127.0.0.1:9090:9090"
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    links:
+      - db
+      - redis
+      - rabbitmq
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
