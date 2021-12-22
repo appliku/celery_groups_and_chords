@@ -14,7 +14,6 @@ app.conf.broker_pool_limit = 1
 app.conf.broker_heartbeat = None
 app.conf.broker_connection_timeout = 30
 app.conf.worker_prefetch_multiplier = 1
-
 app.conf.beat_schedule = {
     # 'send_queued': {
     #     'task': 'post_office.tasks.send_queued_mail',
